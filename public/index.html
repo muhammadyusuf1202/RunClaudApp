@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RunCloud | Instant Deploy</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&display=swap');
+        
+        body {
+            background-color: #050505;
+            color: white;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow: hidden;
+        }
+
+        /* Fon animatsiyasi */
+        .bg-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 209, 178, 0.1) 0%, transparent 70%);
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Drop Zone - Kursor bilan aylanadigan effekt */
+        .drop-container {
+            position: relative;
+            width: 450px;
+            height: 450px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .outer-circle {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border: 2px dashed rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            transition: 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .drop-zone {
+            width: 380px;
+            height: 380px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            transition: 0.3s;
+            z-index: 10;
+        }
+
+        .drop-zone:hover {
+            border-color: #00d1b2;
+            background: rgba(0, 209, 178, 0.05);
+        }
+
+        .logo-glow {
+            filter: drop-shadow(0 0 20px rgba(0, 209, 178, 0.4));
+            transition: 0.5s;
+        }
+
+        /* Yuklanayotgan animatsiya */
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .loading .outer-circle {
+            border-color: #00d1b2;
+            animation: rotate 4s linear infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center">
+
+    <div class="bg-glow"></div>
+
+    <div class="text-center mb-12">
+        <img src="/logo.png" alt="RunCloud" class="w-24 mx-auto mb-6 logo-glow">
+        <h1 class="text-5xl font-extrabold tracking-tighter mb-4">
+            Loyiha papkangizni <span class="text-cyan-400">tashlang.</span>
+        </h1>
+        <p class="text-gray-400 text-lg">Bir necha soniyada subdomeningiz tayyor bo'ladi.</p>
+    </div>
+
+    <div class="drop-container" id="container">
+        <div class="outer-circle" id="outer"></div>
+        <div class="drop-zone shadow-2xl" id="dropZone">
+            <div class="bg-cyan-500 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 shadow-lg shadow-cyan-500/50">
+                <i class="fas fa-arrow-up text-2xl text-black"></i>
+            </div>
+            <p class="text-gray-300 font-bold uppercase tracking-widest text-xs" id="status">Papkani sudrab keling</p>
+        </div>
+        <input type="file" id="fileInput" webkitdirectory directory multiple class="hidden">
+    </div>
+
+    <div class="mt-20 flex gap-8 text-gray-500 text-sm">
+        <span><i class="fas fa-check-circle mr-2"></i> Subdomain auto-gen</span>
+        <span><i class="fas fa-bolt mr-2"></i> Instant Live</span>
+        <span><i class="fas fa-shield-alt mr-2"></i> SSL Protected</span>
+    </div>
+
+    <script>
+        const container = document.getElementById('container');
+        const outer = document.getElementById('outer');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const statusText = document.getElementById('status');
+
+        // Kursor effektini yaratish
+        document.addEventListener('mousemove', (e) => {
+            const xAxis = (window.innerWidth / 2 - e.pageX) / 25;
+            const yAxis = (window.innerHeight / 2 - e.pageY) / 25;
+            container.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`;
+            outer.style.transform = `scale(1.1) translate(${xAxis}px, ${yAxis}px)`;
+        });
+
+        // Drop Zone mantiqi
+        dropZone.onclick = () => fileInput.click();
+
+        ['dragover', 'drop'].forEach(e => {
+            dropZone.addEventListener(e, (evt) => {
+                evt.preventDefault();
+                if(e === 'dragover') container.classList.add('loading');
+                else container.classList.remove('loading');
+            });
+        });
+
+        dropZone.addEventListener('drop', (e) => handleUpload(e.dataTransfer.files));
+        fileInput.onchange = (e) => handleUpload(e.target.files);
+
+        async function handleUpload(files) {
+            if (files.length === 0) return;
+            container.classList.add('loading');
+            statusText.innerText = "YUKLANMOQDA...";
+
+            const deployId = prompt("Loyiha nomini kiriting:", "my-project-" + Math.floor(Math.random() * 1000));
+            const formData = new FormData();
+            
+            for (let file of files) {
+                formData.append('files', file, file.webkitRelativePath || file.name);
+            }
+
+            try {
+                const res = await fetch('/deploy', {
+                    method: 'POST',
+                    headers: { 'x-deploy-id': deployId },
+                    body: formData
+                });
+                const data = await res.json();
+                
+                if (res.ok) {
+                    window.location.href = `https://${deployId}.runcloud.uz`;
+                }
+            } catch (err) {
+                alert("Xatolik!");
+                statusText.innerText = "XATO!";
+                container.classList.remove('loading');
+            }
+        }
+    </script>
+</body>
+</html>
